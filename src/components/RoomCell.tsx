@@ -33,11 +33,19 @@ const RoomCell: React.FC<RoomCellProps> = ({
   };
 
   const currentSeconds = roomTimers[guestNumber] || 0;
-  const currentMins = (currentSeconds / 60).toFixed(2);
-  const cost = (parseFloat(currentMins) * costPerMinute).toFixed(2);
+
+  // Format time as MM:SS
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const formattedTime = formatTime(currentSeconds);
+  const cost = ((currentSeconds / 60) * costPerMinute).toFixed(2);
   const isRunning = Boolean(roomIntervals[guestNumber]);
 
-  // We'll store your possible room names in an array to map over:
+  // Store possible room names in an array to map over:
   const roomOptions = ["Room 1", "Room 2", "Room 3", "Room 4", "Room 5", "Room 6"];
 
   return (
@@ -51,9 +59,7 @@ const RoomCell: React.FC<RoomCellProps> = ({
           Select Room
         </option>
         {roomOptions.map((roomName) => {
-          // Decide if we should disable this room
-          // It's disabled if it's in allUsedRooms (taken by *another* guest) AND it's not the
-          // room currently selected by this guest (so we can still see user's own current selection).
+          // Disable room if it's in allUsedRooms AND it's not the room selected by this guest
           const disabled =
             allUsedRooms.includes(roomName) && selectedRoom !== roomName;
 
@@ -66,7 +72,7 @@ const RoomCell: React.FC<RoomCellProps> = ({
       </select>
 
       <div>Start Time: {roomStartTime || "N/A"}</div>
-      <div>Time: {currentMins} mins</div>
+      <div>Time: {formattedTime} mins</div>
       <div>Cost: {cost} L.E</div>
 
       <button

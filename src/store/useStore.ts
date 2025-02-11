@@ -5,7 +5,6 @@ import { create } from "zustand";
    ───────────────────────────────────────────────────────────── */
 interface User {
   email: string;
-  // Add other user fields if needed
 }
 
 interface AuthState {
@@ -13,7 +12,6 @@ interface AuthState {
   setUser: (userData: User | null) => void;
 }
 
-// Separate store to handle authentication
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   setUser: (userData) => set({ user: userData }),
@@ -23,11 +21,11 @@ export const useAuthStore = create<AuthState>((set) => ({
    2) Main Store (Guests, Inventory, Timers, etc.)
    ───────────────────────────────────────────────────────────── */
 
-// Now we export the InventoryItem interface so other files can import
 export interface InventoryItem {
   name: string;
   price: number;
-  quantity: number; // Track quantity of each item
+  quantity: number;
+  originalStock: number; // Ensures proper stock tracking
 }
 
 interface Guest {
@@ -55,7 +53,6 @@ interface HistoryItem {
   total: number;
 }
 
-// Each guest’s timer data: time in seconds, plus whether it’s running
 interface TimerData {
   time: number;
   isRunning: boolean;
@@ -66,210 +63,185 @@ interface TimerState {
 }
 
 interface StoreState {
-  // Guests State
   guests: Guest[];
   addGuest: (guest: Guest) => void;
   updateGuest: (guestNumber: number, updatedFields: Partial<Guest>) => void;
   removeGuest: (guestNumber: number) => void;
   clearGuests: () => void;
 
-  // Room Timers
   roomTimers: TimerState;
-  updateRoomTimer: (guestNumber: number, time: number, isRunning: boolean) => void;
+  updateRoomTimer: (
+    guestNumber: number,
+    time: number,
+    isRunning: boolean
+  ) => void;
   removeRoomTimer: (guestNumber: number) => void;
 
-  // Billiardo Timers
   billiardoTimers: TimerState;
-  updateBilliardoTimer: (guestNumber: number, time: number, isRunning: boolean) => void;
+  updateBilliardoTimer: (
+    guestNumber: number,
+    time: number,
+    isRunning: boolean
+  ) => void;
   removeBilliardoTimer: (guestNumber: number) => void;
 
-  // Bar Items
   barItems: { [guestNumber: number]: string[] };
   addBarItem: (guestNumber: number, item: string) => void;
   removeBarItem: (guestNumber: number, item: string) => void;
 
-  // Services Income State
   income: ServiceIncome;
   updateIncome: (income: Partial<ServiceIncome>) => void;
 
-  // History State
   history: HistoryItem[];
   addToHistory: (item: HistoryItem) => void;
   removeFromHistory: (index: number) => void;
   clearHistory: () => void;
 
-  // Inventory State
   inventory: InventoryItem[];
   addInventoryItem: (item: InventoryItem) => void;
   removeInventoryItem: (index: number) => void;
   updateInventoryQuantity: (name: string, delta: number) => void;
 }
 
-// Main store for everything else
 export const useStore = create<StoreState>((set, get) => ({
-  // ─────────────────────────────────────────────────────────
-  // Guests State
-  // ─────────────────────────────────────────────────────────
-  guests: JSON.parse(localStorage.getItem("guests") || "[]"),
-  addGuest: (guest) =>
-    set((state) => {
-      const updatedGuests = [...state.guests, guest];
-      localStorage.setItem("guests", JSON.stringify(updatedGuests));
-      return { guests: updatedGuests };
-    }),
+  /* Guests */
+  guests: [],
+  addGuest: (guest) => set((state) => ({ guests: [...state.guests, guest] })),
+
   updateGuest: (guestNumber, updatedFields) =>
-    set((state) => {
-      const updatedGuests = state.guests.map((guest) =>
+    set((state) => ({
+      guests: state.guests.map((guest) =>
         guest.guestNumber === guestNumber ? { ...guest, ...updatedFields } : guest
-      );
-      localStorage.setItem("guests", JSON.stringify(updatedGuests));
-      return { guests: updatedGuests };
-    }),
+      ),
+    })),
+
   removeGuest: (guestNumber) =>
     set((state) => {
-      const updatedGuests = state.guests.filter((g) => g.guestNumber !== guestNumber);
-      localStorage.setItem("guests", JSON.stringify(updatedGuests));
+      const updatedGuests = state.guests.filter(
+        (g) => g.guestNumber !== guestNumber
+      );
       return { guests: updatedGuests };
     }),
-  clearGuests: () => {
-    localStorage.removeItem("guests");
-    set({ guests: [] });
-  },
 
-  // ─────────────────────────────────────────────────────────
-  // Room Timers
-  // ─────────────────────────────────────────────────────────
-  roomTimers: JSON.parse(localStorage.getItem("roomTimers") || "{}"),
+  clearGuests: () => set({ guests: [] }),
+
+  /* Timers */
+  roomTimers: {},
   updateRoomTimer: (guestNumber, time, isRunning) =>
-    set((state) => {
-      const updatedTimers = {
-        ...state.roomTimers,
-        [guestNumber]: { time, isRunning },
-      };
-      localStorage.setItem("roomTimers", JSON.stringify(updatedTimers));
-      return { roomTimers: updatedTimers };
-    }),
+    set((state) => ({
+      roomTimers: { ...state.roomTimers, [guestNumber]: { time, isRunning } },
+    })),
+
   removeRoomTimer: (guestNumber) =>
     set((state) => {
       const updatedTimers = { ...state.roomTimers };
       delete updatedTimers[guestNumber];
-      localStorage.setItem("roomTimers", JSON.stringify(updatedTimers));
       return { roomTimers: updatedTimers };
     }),
 
-  // ─────────────────────────────────────────────────────────
-  // Billiardo Timers
-  // ─────────────────────────────────────────────────────────
-  billiardoTimers: JSON.parse(localStorage.getItem("billiardoTimers") || "{}"),
+  billiardoTimers: {},
   updateBilliardoTimer: (guestNumber, time, isRunning) =>
-    set((state) => {
-      const updatedTimers = {
+    set((state) => ({
+      billiardoTimers: {
         ...state.billiardoTimers,
         [guestNumber]: { time, isRunning },
-      };
-      localStorage.setItem("billiardoTimers", JSON.stringify(updatedTimers));
-      return { billiardoTimers: updatedTimers };
-    }),
+      },
+    })),
+
   removeBilliardoTimer: (guestNumber) =>
     set((state) => {
       const updatedTimers = { ...state.billiardoTimers };
       delete updatedTimers[guestNumber];
-      localStorage.setItem("billiardoTimers", JSON.stringify(updatedTimers));
       return { billiardoTimers: updatedTimers };
     }),
 
-  // ─────────────────────────────────────────────────────────
-  // Bar Items
-  // ─────────────────────────────────────────────────────────
-  barItems: JSON.parse(localStorage.getItem("barItems") || "{}"),
+  /* Bar Items */
+  barItems: {},
   addBarItem: (guestNumber, item) => {
     const inventory = get().inventory;
     const inventoryItem = inventory.find((invItem) => invItem.name === item);
 
     if (inventoryItem && inventoryItem.quantity > 0) {
-      set((state) => {
-        const updatedBarItems = {
+      set((state) => ({
+        barItems: {
           ...state.barItems,
           [guestNumber]: [...(state.barItems[guestNumber] || []), item],
-        };
-        localStorage.setItem("barItems", JSON.stringify(updatedBarItems));
-        return { barItems: updatedBarItems };
-      });
-      get().updateInventoryQuantity(item, -1); // Decrease quantity in inventory
+        },
+      }));
+      get().updateInventoryQuantity(item, -1);
     }
   },
+
   removeBarItem: (guestNumber, item) => {
     set((state) => {
       const updatedBarItems = {
         ...state.barItems,
         [guestNumber]: state.barItems[guestNumber].filter((i) => i !== item),
       };
-      localStorage.setItem("barItems", JSON.stringify(updatedBarItems));
+
+      const invItem = get().inventory.find((inv) => inv.name === item);
+      if (invItem && invItem.quantity < invItem.originalStock) {
+        get().updateInventoryQuantity(item, 1);
+      }
+
       return { barItems: updatedBarItems };
     });
-    get().updateInventoryQuantity(item, 1); // Increase quantity in inventory
   },
 
-  // ─────────────────────────────────────────────────────────
-  // Services Income State
-  // ─────────────────────────────────────────────────────────
-  income: JSON.parse(
-    localStorage.getItem("income") ||
-      '{"psIncome": 0, "billiardoIncome": 0, "barIncome": 0}'
-  ),
+  /* Income */
+  income: { psIncome: 0, billiardoIncome: 0, barIncome: 0 },
   updateIncome: (updates) =>
-    set((state) => {
-      const updatedIncome = {
+    set((state) => ({
+      income: {
         psIncome: state.income.psIncome + (updates.psIncome || 0),
         billiardoIncome:
           state.income.billiardoIncome + (updates.billiardoIncome || 0),
         barIncome: state.income.barIncome + (updates.barIncome || 0),
-      };
-      localStorage.setItem("income", JSON.stringify(updatedIncome));
-      return { income: updatedIncome };
-    }),
+      },
+    })),
 
-  // ─────────────────────────────────────────────────────────
-  // History State
-  // ─────────────────────────────────────────────────────────
-  history: JSON.parse(localStorage.getItem("history") || "[]"),
-  addToHistory: (item) => {
-    const updatedHistory = [...get().history, item];
-    localStorage.setItem("history", JSON.stringify(updatedHistory));
-    set({ history: updatedHistory });
-  },
-  removeFromHistory: (index) => {
-    const updatedHistory = get().history.filter((_, i) => i !== index);
-    localStorage.setItem("history", JSON.stringify(updatedHistory));
-    set({ history: updatedHistory });
-  },
-  clearHistory: () => {
-    localStorage.removeItem("history");
-    set({ history: [] });
-  },
+  /* History */
+  history: [],
+  addToHistory: (item) =>
+    set((state) => ({ history: [...state.history, item] })),
 
-  // ─────────────────────────────────────────────────────────
-  // Inventory State
-  // ─────────────────────────────────────────────────────────
-  inventory: JSON.parse(localStorage.getItem("inventory") || "[]"),
+  removeFromHistory: (index) =>
+    set((state) => ({
+      history: state.history.filter((_, i) => i !== index),
+    })),
+
+  clearHistory: () => set({ history: [] }),
+
+  /* Inventory */
+  inventory: [],
   addInventoryItem: (item) =>
-    set((state) => {
-      const updatedInventory = [...state.inventory, item];
-      localStorage.setItem("inventory", JSON.stringify(updatedInventory));
-      return { inventory: updatedInventory };
-    }),
+    set((state) => ({
+      inventory: [
+        ...state.inventory,
+        { ...item, originalStock: item.quantity },
+      ],
+    })),
+
   removeInventoryItem: (index) =>
-    set((state) => {
-      const updatedInventory = state.inventory.filter((_, i) => i !== index);
-      localStorage.setItem("inventory", JSON.stringify(updatedInventory));
-      return { inventory: updatedInventory };
-    }),
+    set((state) => ({
+      inventory: state.inventory.filter((_, i) => i !== index),
+    })),
+
   updateInventoryQuantity: (name, delta) =>
-    set((state) => {
-      const updatedInventory = state.inventory.map((invItem) =>
-        invItem.name === name ? { ...invItem, quantity: invItem.quantity + delta } : invItem
-      );
-      localStorage.setItem("inventory", JSON.stringify(updatedInventory));
-      return { inventory: updatedInventory };
-    }),
+    set((state) => ({
+      inventory: state.inventory.map((invItem) =>
+        invItem.name === name
+          ? { ...invItem, quantity: Math.max(invItem.quantity + delta, 0) }
+          : invItem
+      ),
+    })),
 }));
+
+// ─────────────────────────────────────────────────────────
+// ✅ Efficiently handle localStorage updates with Zustand’s subscribe API
+// ─────────────────────────────────────────────────────────
+useStore.subscribe((state) => {
+  localStorage.setItem("inventory", JSON.stringify(state.inventory));
+  localStorage.setItem("history", JSON.stringify(state.history));
+  localStorage.setItem("income", JSON.stringify(state.income));
+});
