@@ -14,13 +14,16 @@ const GuestTable: React.FC = () => {
     updateIncome,
   } = useStore();
 
-  // Timers (in seconds), plus intervals for each
-  const [roomTimers, setRoomTimers] = useState<{
-    [guestNumber: number]: number;
-  }>({});
+  // ─────────────────────────────────────────────────────────────
+  // States for room and billiardo timers/intervals (only in-memory)
+  // ─────────────────────────────────────────────────────────────
+  const [roomTimers, setRoomTimers] = useState<{ [guestNumber: number]: number }>(
+    {}
+  );
   const [billiardoTimers, setBilliardoTimers] = useState<{
     [guestNumber: number]: number;
   }>({});
+
   const [roomIntervals, setRoomIntervals] = useState<{
     [guestNumber: number]: NodeJS.Timeout;
   }>({});
@@ -28,7 +31,9 @@ const GuestTable: React.FC = () => {
     [guestNumber: number]: NodeJS.Timeout;
   }>({});
 
-  // Room/Billiardo Selections & Times
+  // ─────────────────────────────────────────────────────────────
+  // Room / Billiardo selections & start/end times
+  // ─────────────────────────────────────────────────────────────
   const [selectedRoom, setSelectedRoom] = useState<{
     [guestNumber: number]: string;
   }>({});
@@ -45,7 +50,9 @@ const GuestTable: React.FC = () => {
     [guestNumber: number]: string;
   }>({});
 
+  // ─────────────────────────────────────────────────────────────
   // Bar Items
+  // ─────────────────────────────────────────────────────────────
   const [selectedBarItems, setSelectedBarItems] = useState<{
     [guestNumber: number]: { item: string; count: number }[];
   }>({});
@@ -53,13 +60,44 @@ const GuestTable: React.FC = () => {
     [guestNumber: number]: string;
   }>({});
 
+  // ─────────────────────────────────────────────────────────────
   // Track total cost for each guest
+  // ─────────────────────────────────────────────────────────────
   const [guestTotal, setGuestTotal] = useState<{
     [guestNumber: number]: number;
   }>({});
 
   // ─────────────────────────────────────────────────────────────
-  // ROOM Timer Toggle (captures End Time on stop)
+  // Helper to calculate costs for a given guest
+  // ─────────────────────────────────────────────────────────────
+  const calculateCosts = (guestNumber: number) => {
+    const rSec = roomTimers[guestNumber] || 0;
+    const bSec = billiardoTimers[guestNumber] || 0;
+    const barItems = selectedBarItems[guestNumber] || [];
+
+    const roomCost = (rSec / 60) * 1.7;
+    const billiardoCost = (bSec / 60) * 1.2;
+    const barCost = barItems.reduce((sum, b) => {
+      const price = inventory.find((inv) => inv.name === b.item)?.price || 0;
+      return sum + b.count * price;
+    }, 0);
+
+    const total = roomCost + billiardoCost + barCost;
+    return { roomCost, billiardoCost, barCost, total };
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // Recalculate guest totals whenever timers or bar items change
+  // ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    guests.forEach((g) => {
+      const { total } = calculateCosts(g.guestNumber);
+      setGuestTotal((prev) => ({ ...prev, [g.guestNumber]: total }));
+    });
+  }, [guests, roomTimers, billiardoTimers, selectedBarItems, inventory]);
+
+  // ─────────────────────────────────────────────────────────────
+  // ROOM Timer Toggle
   // ─────────────────────────────────────────────────────────────
   const toggleRoomTimer = (guestNumber: number) => {
     if (!selectedRoom[guestNumber]) {
@@ -86,7 +124,7 @@ const GuestTable: React.FC = () => {
 
       setRoomIntervals((prev) => ({ ...prev, [guestNumber]: interval }));
     } else {
-      // If running, STOP and record end time
+      // If running, stop and record end time
       const now = new Date();
       setRoomEndTime((prev) => ({
         ...prev,
@@ -106,9 +144,10 @@ const GuestTable: React.FC = () => {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // BILLIARDO Timer Toggle (captures End Time on stop)
+  // BILLIARDO Timer Toggle
   // ─────────────────────────────────────────────────────────────
   const toggleBilliardoTimer = (guestNumber: number) => {
+    // If you want to enforce "single user" for billiardo:
     const isBilliardoInUse = Object.keys(billiardoIntervals).length > 0;
     if (!billiardoIntervals[guestNumber] && isBilliardoInUse) {
       alert("Billiardo table is already in use by another guest.");
@@ -214,49 +253,15 @@ const GuestTable: React.FC = () => {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // Calculate Totals whenever timers or bar items change
-  // ─────────────────────────────────────────────────────────────
-  useEffect(() => {
-    guests.forEach((g) => {
-      const gNum = g.guestNumber;
-      const rSec = roomTimers[gNum] || 0;
-      const bSec = billiardoTimers[gNum] || 0;
-      const barItems = selectedBarItems[gNum] || [];
-
-      const roomCost = (rSec / 60) * 1.7;
-      const billiardoCost = (bSec / 60) * 1.2;
-      const barCost = barItems.reduce((sum, b) => {
-        const price = inventory.find((inv) => inv.name === b.item)?.price || 0;
-        return sum + b.count * price;
-      }, 0);
-
-      const total = roomCost + billiardoCost + barCost;
-      setGuestTotal((prev) => ({ ...prev, [gNum]: total }));
-    });
-  }, [guests, roomTimers, billiardoTimers, selectedBarItems, inventory]);
-
-  // ─────────────────────────────────────────────────────────────
   // Print Receipt
   // ─────────────────────────────────────────────────────────────
   const handlePrintReceipt = (guestNumber: number) => {
     const guest = guests.find((g) => g.guestNumber === guestNumber);
     if (!guest) return;
 
-    const secRoom = roomTimers[guestNumber] || 0;
-    const secBilliardo = billiardoTimers[guestNumber] || 0;
-    const costRoom = ((secRoom / 60) * 1.7).toFixed(2);
-    const costBilliardo = ((secBilliardo / 60) * 1.2).toFixed(2);
-    const barItems = selectedBarItems[guestNumber] || [];
-    const costBar = barItems.reduce((sum, bi) => {
-      const p = inventory.find((inv) => inv.name === bi.item)?.price || 0;
-      return sum + bi.count * p;
-    }, 0);
-
-    const total = (
-      parseFloat(costRoom) +
-      parseFloat(costBilliardo) +
-      costBar
-    ).toFixed(2);
+    const { roomCost, billiardoCost, barCost, total } = calculateCosts(
+      guestNumber
+    );
 
     const printWindow = window.open("", "_blank", "width=600,height=400");
     if (printWindow) {
@@ -279,17 +284,18 @@ const GuestTable: React.FC = () => {
             <p><strong>Room Start Time:</strong> ${
               roomStartTime[guestNumber] || "N/A"
             }</p>
-            <p><strong>Room Cost:</strong> ${costRoom} L.E</p>
+            <p><strong>Room Cost:</strong> ${roomCost.toFixed(2)} L.E</p>
             <p><strong>Billiardo Start Time:</strong> ${
               billiardoStartTime[guestNumber] || "N/A"
             }</p>
-            <p><strong>Billiardo Cost:</strong> ${costBilliardo} L.E</p>
+            <p><strong>Billiardo Cost:</strong> ${billiardoCost.toFixed(2)} L.E</p>
             <p><strong>Bar Items:</strong> ${
-              barItems.map((bi) => `${bi.item}(${bi.count})`).join(", ") ||
-              "None"
+              (selectedBarItems[guestNumber] || [])
+                .map((bi) => `${bi.item}(${bi.count})`)
+                .join(", ") || "None"
             }</p>
-            <p><strong>Bar Cost:</strong> ${costBar.toFixed(2)} L.E</p>
-            <p><strong>Total:</strong> ${total} L.E</p>
+            <p><strong>Bar Cost:</strong> ${barCost.toFixed(2)} L.E</p>
+            <p><strong>Total:</strong> ${total.toFixed(2)} L.E</p>
             <button onclick="window.print()">Print</button>
           </body>
         </html>
@@ -302,47 +308,38 @@ const GuestTable: React.FC = () => {
   // Done => finalize guest
   // ─────────────────────────────────────────────────────────────
   const handleDone = (guestNumber: number) => {
-    // 1) Find the guest
-    const g = guests.find((guest) => guest.guestNumber === guestNumber);
-    if (!g) return;
+    const guest = guests.find((g) => g.guestNumber === guestNumber);
+    if (!guest) return;
 
-    // 2) Gather times/costs
-    const rTime = roomTimers[guestNumber] || 0;
-    const bTime = billiardoTimers[guestNumber] || 0;
-    const barItems = selectedBarItems[guestNumber] || [];
+    const { roomCost, billiardoCost, barCost, total } = calculateCosts(
+      guestNumber
+    );
 
-    const roomCost = (rTime / 60) * 1.7;
-    const billiardoCost = (bTime / 60) * 1.2;
-    const barCost = barItems.reduce((sum, obj) => {
-      const price = inventory.find((inv) => inv.name === obj.item)?.price || 0;
-      return sum + obj.count * price;
-    }, 0);
-
-    // 3) Add to history (includes End Times)
+    // Add to history (including end times)
     addToHistory({
       guestNumber,
       room: `${selectedRoom[guestNumber] || "N/A"}<br>Start: ${
         roomStartTime[guestNumber] || "N/A"
       }<br>End: ${roomEndTime[guestNumber] || "N/A"}`,
       roomCost,
-
-      billiardo: `Start: ${billiardoStartTime[guestNumber] || "N/A"}<br>End: ${
-        billiardoEndTime[guestNumber] || "N/A"
-      }`,
+      billiardo: `Start: ${
+        billiardoStartTime[guestNumber] || "N/A"
+      }<br>End: ${billiardoEndTime[guestNumber] || "N/A"}`,
       billiardoCost,
-
-      barItems: barItems.map((bi) => `${bi.item}(${bi.count})`).join(", "),
-      total: roomCost + billiardoCost + barCost,
+      barItems: (selectedBarItems[guestNumber] || [])
+        .map((bi) => `${bi.item}(${bi.count})`)
+        .join(", "),
+      total,
     });
 
-    // 4) Update Income
+    // Update income
     updateIncome({
       psIncome: roomCost,
       billiardoIncome: billiardoCost,
       barIncome: barCost,
     });
 
-    // 5) Remove guest from store
+    // Remove guest from store
     removeGuest(guestNumber);
   };
 
@@ -369,7 +366,7 @@ const GuestTable: React.FC = () => {
 
             // Gather all rooms being used by other guests:
             const allUsedRooms = Object.entries(selectedRoom)
-              .filter(([otherGuestNum]) => Number(otherGuestNum) !== gNum) // exclude current guest
+              .filter(([otherGuestNum]) => Number(otherGuestNum) !== gNum)
               .map(([, roomName]) => roomName);
 
             return (

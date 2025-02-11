@@ -20,7 +20,7 @@ const Navbar: React.FC = () => {
         <div className="flex items-center">
           <img src="/logo.png" alt="Greyden Logo" className="w-10 h-10 mr-2" />
           <h1 className="text-xl font-bold">
-            <NavLink to="/">GamingCafe</NavLink>
+            <NavLink to="/">GREYDEN</NavLink>
           </h1>
         </div>
 
