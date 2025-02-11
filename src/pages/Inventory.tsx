@@ -14,7 +14,8 @@ const Inventory: React.FC = () => {
         name: itemName.trim(),
         price: Number(itemPrice),
         quantity: Number(itemQuantity),
-      });
+        originalStock: Number(itemQuantity),
+      });      
       setItemName("");
       setItemPrice("");
       setItemQuantity("");
